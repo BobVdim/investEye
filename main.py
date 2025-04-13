@@ -7,7 +7,8 @@ from aiogram.filters import Command
 from settings import TOKEN
 from core.forms.share_price_form import ShareForm
 from core.handlers.start import get_start
-from core.handlers.share_price import get_price, get_answer_about_price
+from core.handlers.share_price_handler import SharePriceHandler
+from core.services.tinkoff_services import TinkoffService
 from core.utils.commands import set_commands
 
 
@@ -19,12 +20,15 @@ async def main():
     bot = Bot(TOKEN)
     dp = Dispatcher()
 
+    service = TinkoffService()
+    share_handler = SharePriceHandler(service=service)
+
     await set_commands(bot)
 
     dp.message.register(get_start, Command(commands=['start']))
 
-    dp.message.register(get_price, Command(commands=['share_price']))
-    dp.message.register(get_answer_about_price, ShareForm.GET_TICKER)
+    dp.message.register(share_handler.get_price, Command(commands=['share_price']))
+    dp.message.register(share_handler.get_answer, ShareForm.GET_TICKER)
 
     try:
         await dp.start_polling(bot)
