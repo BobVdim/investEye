@@ -8,7 +8,7 @@ from settings import TOKEN
 from core.forms.share_price_form import ShareForm
 from core.handlers.start import get_start
 from core.handlers.share_price_handler import SharePriceHandler
-from core.services.tinkoff_services import TinkoffService
+from core.services.stock_service import StockService
 from core.utils.commands import set_commands
 
 
@@ -20,7 +20,7 @@ async def main():
     bot = Bot(TOKEN)
     dp = Dispatcher()
 
-    service = TinkoffService()
+    service = StockService()
     share_handler = SharePriceHandler(service=service)
 
     await set_commands(bot)

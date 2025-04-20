@@ -1,6 +1,8 @@
 import logging
 import colorlog
 
+""" Логгирование ошибок в консоль с подробной информацией и разным цветом для них """
+
 logger = logging.getLogger("investEye_bot")
 logger.setLevel(logging.DEBUG)
 
