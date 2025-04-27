@@ -19,7 +19,7 @@ async def main():
 
     bot = Bot(TOKEN)
     dp = Dispatcher()
-
+ 
     service = StockService()
     share_handler = SharePriceHandler(service=service)
 

@@ -9,7 +9,7 @@ from core.handlers.handlers_utils.share_price_utils import (
     send_response,
     clean_chat,
     set_state,
-    delete_old_bot_message
+    edit_old_bot_message
 )
 from core.validators.ticker_validator import validate_ticker
 
@@ -48,13 +48,12 @@ class SharePriceHandler:
 
         try:
             await clean_chat(message)
-            await delete_old_bot_message(message, state)
 
-            ticker = await validate_ticker(message)  # Валидируем введённый тикер
+            ticker = await validate_ticker(message)
             if not ticker:
-                return  # Если тикер невалидный — не продолжаем
+                return
 
-            await self._price_response(message, ticker)
+            await self._price_response(message, state, ticker, edit=True)
 
         except Exception:
             logger.exception("Произошла ошибка в функции get_answer. Проверьте её!")
@@ -62,13 +61,13 @@ class SharePriceHandler:
         finally:
             await state.clear()
 
-    async def _price_response(self, message: Message, ticker: str):
+    async def _price_response(self, message: Message, state: FSMContext, ticker: str, edit=False):
 
         """
         Отправляет сообщение с ценой акции, если она найдена.
         Иначе сообщает, что тикер не найден.
-
         """
+
         price = self.service.get_share_price(ticker)
 
         if price:
@@ -76,4 +75,7 @@ class SharePriceHandler:
         else:
             text = NOT_FOUND.format(ticker=ticker)
 
-        await send_response(message, text, parse_mode='HTML')
+        if edit:
+            await edit_old_bot_message(message, state, text)
+        else:
+            await send_response(message, text)
