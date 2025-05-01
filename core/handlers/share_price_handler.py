@@ -6,10 +6,9 @@ from core.utils.logger import logger
 from core.texts.share_price_texts import ENTER_TICKER, NOT_FOUND, PRICE_RESPONSE
 from core.texts.errors_texts import ERROR
 from core.handlers.handlers_utils.share_price_utils import (
-    send_response,
     clean_chat,
     set_state,
-    edit_old_bot_message
+    send_one_message,
 )
 from core.keyboards.inline import create_repeat_share_inline
 from core.validators.ticker_validator import validate_ticker
@@ -23,28 +22,31 @@ class SharePriceHandler:
     async def get_price(message: Message, state: FSMContext):
 
         """
-        Первый шаг — запрашивает у пользователя тикер акции.
-        Очищает чат и сохраняет сообщение бота в состоянии.
+        Первый шаг — просим ввести тикер. Стираем сообщение пользователя.
+        Отправляем боту новое сообщение и сохраняем его ID.
         """
 
         try:
             await clean_chat(message)
 
-            msg = await message.answer(
-                ENTER_TICKER.format(name=message.from_user.first_name),
-                parse_mode='HTML',
+            await send_one_message(
+                message,
+                state,
+                text=ENTER_TICKER.format(name=message.from_user.first_name),
+                reply_markup=None
             )
 
-            await set_state(state, msg.message_id)
+            await set_state(state,
+                            msg_id=message.message_id)
+
         except Exception:
-            logger.exception("Произошла ошибка в функции get_price. Проверьте её!")
-            await send_response(message, ERROR)
+            logger.exception("Ошибка в get_price")
+            await send_one_message(message, state, ERROR)
 
     async def get_answer(self, message: Message, state: FSMContext):
 
         """
-        Второй шаг — получает тикер от пользователя, валидирует его,
-        получает цену акции и отправляет ответ.
+        Второй шаг — получаем тикер от пользователя, валидируем, получаем цену.
         """
 
         try:
@@ -54,18 +56,18 @@ class SharePriceHandler:
             if not ticker:
                 return
 
-            await self._price_response(message, state, ticker, edit=True)
+            await self._price_response(message, state, ticker)
 
         except Exception:
-            logger.exception("Произошла ошибка в функции get_answer. Проверьте её!")
-            await send_response(message, ERROR)
+            logger.exception("Ошибка в get_answer")
+            await send_one_message(message, state, ERROR)
         finally:
             await state.clear()
 
-    async def _price_response(self, message: Message, state: FSMContext, ticker: str, edit=False):
+    async def _price_response(self, message: Message, state: FSMContext, ticker: str):
+
         """
-        Отправляет сообщение с ценой акции, если она найдена.
-        Иначе сообщает, что тикер не найден.
+        Отправка ответа с ценой акции (или сообщение об ошибке).
         """
 
         price = self.service.get_share_price(ticker)
@@ -75,7 +77,9 @@ class SharePriceHandler:
         else:
             text = NOT_FOUND.format(ticker=ticker)
 
-        if edit:
-            await edit_old_bot_message(message, state, text, reply_markup=create_repeat_share_inline())
-        else:
-            await send_response(message, text, reply_markup=create_repeat_share_inline())
+        await send_one_message(
+            message,
+            state,
+            text=text,
+            reply_markup=create_repeat_share_inline()
+        )

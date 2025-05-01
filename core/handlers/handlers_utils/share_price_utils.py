@@ -4,20 +4,41 @@ from aiogram.types import Message
 from core.utils.logger import logger
 from core.forms.share_price_form import ShareForm
 
-""" Утилиты для работы share_price_handler """
 
-
-async def send_response(message: Message, text: str, parse_mode: str = 'HTML', reply_markup=None):
-    """ Отправляет текстовое сообщение пользователю в Telegram """
+async def send_one_message(
+        message: Message,
+        state: FSMContext,
+        text: str,
+        reply_markup=None,
+        parse_mode: str = 'HTML'
+):
+    """
+    Удаляет предыдущее сообщение бота (если оно есть) и отправляет новое.
+    Сохраняет ID нового сообщения в FSM-состоянии.
+    """
 
     try:
-        await message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+        data = await state.get_data()
+        old_msg_id = data.get("bot_msg_id")
+
+        if old_msg_id:
+            try:
+                await message.bot.delete_message(chat_id=message.chat.id, message_id=old_msg_id)
+            except Exception as e:
+                logger.warning(f"Не удалось удалить предыдущее сообщение бота: {e}")
+
+        new_msg = await message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
+
+        await state.update_data(bot_msg_id=new_msg.message_id)
+
     except Exception as e:
-        logger.error(f"Произошла ошибка при отправке сообщения: {e}")
+        logger.error(f"Ошибка в send_one_message: {e}")
 
 
 async def clean_chat(message: Message):
-    """ Удаляет сообщение пользователя """
+    """
+    Удаляет сообщение пользователя.
+    """
 
     try:
         await message.delete()
@@ -26,29 +47,9 @@ async def clean_chat(message: Message):
 
 
 async def set_state(state: FSMContext, msg_id: int):
-    """ Устанавливает состояние FSM для пользователя и сохраняет msg_id в контексте """
+    """
+    Сохраняет ID текущего сообщения бота и устанавливает состояние FSM.
+    """
 
     await state.update_data(msg_id=msg_id)
     await state.set_state(ShareForm.GET_TICKER)
-
-
-async def edit_old_bot_message(message: Message, state: FSMContext, new_text: str, parse_mode: str = 'HTML',
-                               reply_markup=None):
-    """ Редактирует старое сообщение бота """
-
-    data = await state.get_data()
-    msg_id = data.get("msg_id")
-    if msg_id:
-        try:
-            await message.bot.edit_message_text(
-                chat_id=message.chat.id,
-                message_id=msg_id,
-                text=new_text,
-                parse_mode=parse_mode,
-                reply_markup=reply_markup
-            )
-        except Exception as e:
-            logger.warning(f"Не удалось отредактировать сообщение бота: {e}")
-            await message.answer(new_text, parse_mode=parse_mode, reply_markup=reply_markup)
-    else:
-        await message.answer(new_text, parse_mode=parse_mode, reply_markup=reply_markup)
