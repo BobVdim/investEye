@@ -11,6 +11,7 @@ from core.handlers.handlers_utils.share_price_utils import (
     set_state,
     edit_old_bot_message
 )
+from core.keyboards.inline import create_repeat_share_inline
 from core.validators.ticker_validator import validate_ticker
 
 
@@ -31,7 +32,7 @@ class SharePriceHandler:
 
             msg = await message.answer(
                 ENTER_TICKER.format(name=message.from_user.first_name),
-                parse_mode='HTML'
+                parse_mode='HTML',
             )
 
             await set_state(state, msg.message_id)
@@ -62,7 +63,6 @@ class SharePriceHandler:
             await state.clear()
 
     async def _price_response(self, message: Message, state: FSMContext, ticker: str, edit=False):
-
         """
         Отправляет сообщение с ценой акции, если она найдена.
         Иначе сообщает, что тикер не найден.
@@ -76,6 +76,6 @@ class SharePriceHandler:
             text = NOT_FOUND.format(ticker=ticker)
 
         if edit:
-            await edit_old_bot_message(message, state, text)
+            await edit_old_bot_message(message, state, text, reply_markup=create_repeat_share_inline())
         else:
-            await send_response(message, text)
+            await send_response(message, text, reply_markup=create_repeat_share_inline())

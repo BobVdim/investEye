@@ -10,6 +10,7 @@ from core.handlers.start import get_start
 from core.handlers.share_price_handler import SharePriceHandler
 from core.services.stock_service import StockService
 from core.utils.commands import set_commands
+from core.handlers.callbacks.share_price_callback import router as repeat_share_handler
 
 
 async def main():
@@ -19,9 +20,11 @@ async def main():
 
     bot = Bot(TOKEN)
     dp = Dispatcher()
- 
+
     service = StockService()
     share_handler = SharePriceHandler(service=service)
+
+    dp.include_router(repeat_share_handler)
 
     await set_commands(bot)
 
