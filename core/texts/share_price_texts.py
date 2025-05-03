@@ -6,6 +6,10 @@ ENTER_TICKER = (
     "Например: <code>AAPL</code> или <code>SBER</code>"
 )
 
-PRICE_RESPONSE = "📊 <b>{ticker}</b>\n\nТекущая цена: <code>{price:.2f}</code> RUB"
+PRICE_RESPONSE = (
+    "📊 <b>{ticker}</b>\n\nТекущая цена:\n"
+    "<code>{price_rub:.2f}</code> RUB\n"
+    "<code>{price_usd:.2f}</code> USD"
+)
 
 NOT_FOUND = "❌ Не удалось найти акцию <code>{ticker}</code>. Проверьте тикер и попробуйте снова."

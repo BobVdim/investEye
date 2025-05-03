@@ -8,21 +8,39 @@ class StockService:
     @staticmethod
     def get_share_price(ticker: str):
 
-        """ Получаем цену акции и возвращаем её """
+        """
+        Получаем цену акции и возвращаем её в рублях и долларах
+        """
 
-        # Сначала пробуем получить цену с MOEX
+        usd_rub = StockService.get_usd_rub_rate()
+        if usd_rub is None:
+            logger.warning("Не удалось получить курс USD/RUB")
+            return None
+
+        # Сначала пробуем получить цену с MOEX (в рублях)
         moex_price = StockService._get_moex_price(ticker)
         if moex_price is not None:
-            return moex_price
+            return {
+                "rub": moex_price,
+                "usd": moex_price / usd_rub
+            }
 
-        else:
-            # Если не удалось — пробуем через yfinance
-            return StockService._get_yahoo_price(ticker)
+        # Если не удалось — пробуем через Yahoo (в долларах)
+        yahoo_price = StockService._get_yahoo_price(ticker)
+        if yahoo_price is not None:
+            return {
+                "usd": yahoo_price,
+                "rub": yahoo_price * usd_rub
+            }
+
+        return None
 
     @staticmethod
     def _get_moex_price(ticker: str):
 
-        """ Получаем цену акций Российских компаний """
+        """
+        Получаем цену акций российских компаний (в рублях) с MOEX
+        """
 
         url = (f"https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/"
                f"securities/{ticker}.jsonp?iss.meta=off&iss.json=extended")
@@ -54,7 +72,9 @@ class StockService:
     @staticmethod
     def _get_yahoo_price(ticker: str):
 
-        """ Получаем цену акций Иностранных компаний """
+        """
+        Получаем цену акций иностранных компаний (в долларах) через Yahoo Finance
+        """
 
         try:
             stock = yf.Ticker(ticker)
@@ -69,4 +89,23 @@ class StockService:
 
         except Exception as e:
             logger.error(f"Ошибка при получении данных с Yahoo для {ticker}: {e}")
+            return None
+
+    @staticmethod
+    def get_usd_rub_rate():
+
+        """
+        Получаем текущий курс доллара к рублю с сайта ЦБ РФ
+        """
+        
+        try:
+            response = requests.get("https://www.cbr-xml-daily.ru/daily_json.js")
+            if response.status_code == 200:
+                data = response.json()
+                return data["Valute"]["USD"]["Value"]
+            else:
+                logger.warning(f"Ошибка при получении курса USD/RUB: {response.status_code}")
+                return None
+        except Exception as e:
+            logger.error(f"Ошибка при получении курса USD/RUB: {e}")
             return None

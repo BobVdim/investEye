@@ -2,7 +2,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from core.utils.logger import logger
-from core.forms.share_price_form import ShareForm
 
 
 async def send_one_message(
@@ -16,7 +15,6 @@ async def send_one_message(
     Удаляет предыдущее сообщение бота (если оно есть) и отправляет новое.
     Сохраняет ID нового сообщения в FSM-состоянии.
     """
-
     try:
         data = await state.get_data()
         old_msg_id = data.get("bot_msg_id")
@@ -37,19 +35,26 @@ async def send_one_message(
 
 async def clean_chat(message: Message):
     """
-    Удаляет сообщение пользователя.
+    Удаляет сообщение пользователя, если оно ещё существует.
     """
-
     try:
         await message.delete()
     except Exception as e:
-        logger.warning(f"Не удалось удалить сообщение пользователя: {e}")
+        if "message to delete not found" not in str(e):
+            logger.warning(f"Не удалось удалить сообщение пользователя: {e}")
 
 
-async def set_state(state: FSMContext, msg_id: int):
+async def delete_previous_bot_message(message: Message, state: FSMContext):
     """
-    Сохраняет ID текущего сообщения бота и устанавливает состояние FSM.
+    Удаляет последнее сообщение бота, если его ID сохранён в FSMContext.
     """
-
-    await state.update_data(msg_id=msg_id)
-    await state.set_state(ShareForm.GET_TICKER)
+    try:
+        data = await state.get_data()
+        old_msg_id = data.get("bot_msg_id")
+        if old_msg_id:
+            try:
+                await message.bot.delete_message(chat_id=message.chat.id, message_id=old_msg_id)
+            except Exception as e:
+                logger.warning(f"Не удалось удалить предыдущее сообщение бота: {e}")
+    except Exception as e:
+        logger.error(f"Ошибка в delete_previous_bot_message: {e}")

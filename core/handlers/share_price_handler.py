@@ -7,11 +7,12 @@ from core.texts.share_price_texts import ENTER_TICKER, NOT_FOUND, PRICE_RESPONSE
 from core.texts.errors_texts import ERROR
 from core.handlers.handlers_utils.share_price_utils import (
     clean_chat,
-    set_state,
     send_one_message,
+    delete_previous_bot_message,
 )
 from core.keyboards.inline import create_repeat_share_inline
 from core.validators.ticker_validator import validate_ticker
+from core.forms.share_price_form import ShareForm
 
 
 class SharePriceHandler:
@@ -20,13 +21,13 @@ class SharePriceHandler:
 
     @staticmethod
     async def get_price(message: Message, state: FSMContext):
-
         """
         Первый шаг — просим ввести тикер. Стираем сообщение пользователя.
         Отправляем боту новое сообщение и сохраняем его ID.
         """
-
         try:
+            await delete_previous_bot_message(message, state)
+            await state.clear()
             await clean_chat(message)
 
             await send_one_message(
@@ -36,8 +37,7 @@ class SharePriceHandler:
                 reply_markup=None
             )
 
-            await set_state(state,
-                            msg_id=message.message_id)
+            await state.set_state(ShareForm.GET_TICKER)
 
         except Exception:
             logger.exception("Ошибка в get_price")
@@ -61,8 +61,6 @@ class SharePriceHandler:
         except Exception:
             logger.exception("Ошибка в get_answer")
             await send_one_message(message, state, ERROR)
-        finally:
-            await state.clear()
 
     async def _price_response(self, message: Message, state: FSMContext, ticker: str):
 
@@ -73,7 +71,9 @@ class SharePriceHandler:
         price = self.service.get_share_price(ticker)
 
         if price:
-            text = PRICE_RESPONSE.format(ticker=ticker, price=price)
+            text = PRICE_RESPONSE.format(ticker=ticker, price_rub=round(price['rub'], 2),
+                                         price_usd=round(price['usd'], 2))
+
         else:
             text = NOT_FOUND.format(ticker=ticker)
 
