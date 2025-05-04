@@ -14,3 +14,17 @@ def create_repeat_share_inline():
 
     builder.adjust(1)
     return builder.as_markup()
+
+
+def create_profile_inline():
+    builder = InlineKeyboardBuilder()
+
+    builder.row(
+        InlineKeyboardButton(
+            text='✨ Создать профиль',
+            callback_data='create_profile'
+        )
+    )
+
+    builder.adjust(1)
+    return builder.as_markup()

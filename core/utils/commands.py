@@ -12,6 +12,10 @@ async def set_commands(bot: Bot):
             command='share_price',
             description='Информация о стоимости акции'
         ),
+        BotCommand(
+            command='profile',
+            description='Мой профиль'
+        )
     ]
 
     await bot.set_my_commands(commands, BotCommandScopeDefault())
