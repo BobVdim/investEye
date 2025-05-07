@@ -12,7 +12,7 @@ from settings import TOKEN
 from core.forms.share_price_form import ShareForm
 from core.handlers.start import get_start
 from core.handlers.share_price_handler import SharePriceHandler
-from core.handlers.profile_view import get_user_profile_message
+from core.handlers.handlers_utils.profile_view import get_user_profile_message
 from core.services.stock_service import StockService
 from core.utils.commands import set_commands
 from core.handlers.callbacks.share_price_callback import router as repeat_share_handler
@@ -38,7 +38,7 @@ async def main():
     dp.include_router(profile_add_share_router)
 
     dp.message.register(get_start, Command(commands=['start']))
-
+    dp.message.register(share_handler.get_price, Command(commands=['share_price']))
     dp.message.register(get_user_profile_message, Command(commands='profile'))
 
     dp.message.register(add_share_handler, F.text == "✨ Добавить акцию")
@@ -46,7 +46,6 @@ async def main():
     dp.message.register(process_add_price, ProfileForm.ADD_PRICE)
     dp.message.register(process_add_count, ProfileForm.ADD_COUNT)
 
-    dp.message.register(share_handler.get_price, Command(commands=['share_price']))
     dp.message.register(share_handler.get_answer, ShareForm.GET_TICKER)
 
     try:

@@ -12,9 +12,6 @@ from core.keyboards.inline import create_profile_inline
 from core.utils.logger import logger
 from core.texts.profile_texts import (
     PROFILE_EMPTY,
-    PROFILE_SUMMARY,
-    TABLE_HEADER,
-    TABLE_SEPARATOR,
 )
 from core.texts.errors_texts import ERROR_GET_PROFILE
 
@@ -46,7 +43,14 @@ async def get_user_profile_message(message: Message, state: FSMContext):
 
 def build_profile_text(rows: list[tuple]) -> str:
     total_value = 0
-    table_lines = [TABLE_HEADER, TABLE_SEPARATOR]
+    table_lines = []
+
+    header = (
+        "┌────────────┬──────────────┬────────────┬──────────────┐\n"
+        "│ Акция      │ Цена (₽)     │ Кол-во     │ Сумма (₽)    │\n"
+        "├────────────┼──────────────┼────────────┼──────────────┤"
+    )
+    table_lines.append(header)
 
     for share, price, count in rows:
         if price is None or count is None:
@@ -55,13 +59,27 @@ def build_profile_text(rows: list[tuple]) -> str:
         total = round(price * count, 2)
         total_value += total
 
-        formatted_price = f"{price:.2f}"
+        formatted_price = f"{price:,.2f}".replace(",", " ").replace(".", ",")
+        formatted_count = f"{count:,}".replace(",", " ")
+        formatted_total = f"{total:,.2f}".replace(",", " ").replace(".", ",")
 
-        line = f"{share.upper():<6} | {formatted_price:<9} | {count:<6} | {total:<10.2f}"
+        line = (
+            f"│ {share.upper():<10} │"
+            f" {formatted_price:>12} │"
+            f" {formatted_count:>10} │"
+            f" {formatted_total:>12} │"
+        )
         table_lines.append(line)
 
+    table_lines.append("└────────────┴──────────────┴────────────┴──────────────┘")
+
     table_str = "\n".join(table_lines)
-    return PROFILE_SUMMARY.format(total=round(total_value, 2), table=table_str)
+    formatted_total = f"{total_value:,.2f}".replace(",", " ").replace(".", ",")
+
+    return (
+        f"💼 <b>Общая стоимость портфеля:</b> <b>{formatted_total} ₽</b>\n\n"
+        f"<pre>{table_str}</pre>"
+    )
 
 
 async def send_profile_empty_message(message: Message, state: FSMContext):

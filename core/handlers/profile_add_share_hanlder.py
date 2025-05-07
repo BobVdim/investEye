@@ -2,7 +2,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from core.forms.profile_form import ProfileForm
-from core.handlers.profile_view import build_profile_text
+from core.handlers.handlers_utils.profile_view import build_profile_text
 from core.keyboards.reply import add_share_button
 from core.services.profile_service import get_user_profile_from_db, save_share_to_db
 from core.handlers.handlers_utils.share_price_utils import send_one_message
@@ -35,13 +35,23 @@ async def process_add_share(message: Message, state: FSMContext):
     await delete_previous_bot_message(message, state)
     await clean_chat(message)
 
-    share_ticker = message.text.strip()
+    share_ticker = message.text.strip().upper()
+
+    if not is_valid_ticker(share_ticker):
+        await send_one_message(
+            message,
+            state,
+            text="❌ Некорректный тикер акции. Тикер должен состоять из 1-5 латинских букв и/или цифр."
+                 "\n\nПопробуйте снова."
+        )
+        return
+
     await state.update_data(share=share_ticker)
 
     await send_one_message(
         message,
         state,
-        text="Введите цену акции:"
+        text="Введите цену акции (или '-' для использования текущей рыночной цены):"
     )
     await state.set_state(ProfileForm.ADD_PRICE)
 
@@ -50,22 +60,48 @@ async def process_add_price(message: Message, state: FSMContext):
     await delete_previous_bot_message(message, state)
     await clean_chat(message)
 
-    try:
-        price = float(message.text.strip())
+    user_data = await state.get_data()
+    share_ticker = user_data["share"]
+
+    if message.text.strip() == "-":
+        from core.services.stock_service import StockService
+        service = StockService()
+        price_data = service.get_share_price(share_ticker)
+
+        if price_data is None:
+            await send_one_message(
+                message,
+                state,
+                text=f"❌ Не удалось получить текущую цену для {share_ticker}. Пожалуйста, введите цену вручную."
+            )
+            return
+
+        price = price_data["rub"]
         await state.update_data(price=price)
 
         await send_one_message(
             message,
             state,
-            text="Введите количество акций:"
+            text=f"Текущая цена {share_ticker}: {price:.2f} руб.\n\nВведите количество акций:"
         )
         await state.set_state(ProfileForm.ADD_COUNT)
-    except ValueError:
-        await send_one_message(
-            message,
-            state,
-            text="❌ Пожалуйста, введите корректную цену."
-        )
+    else:
+        try:
+            price = float(message.text.strip())
+            await state.update_data(price=price)
+
+            await send_one_message(
+                message,
+                state,
+                text="Введите количество акций:"
+            )
+            await state.set_state(ProfileForm.ADD_COUNT)
+        except ValueError:
+            await send_one_message(
+                message,
+                state,
+                text="❌ Пожалуйста, введите корректную цену или '-' для использования текущей цены."
+            )
 
 
 async def process_add_count(message: Message, state: FSMContext):
@@ -101,3 +137,24 @@ async def process_add_count(message: Message, state: FSMContext):
             state,
             text="❌ Пожалуйста, введите корректное количество."
         )
+
+
+def is_valid_ticker(ticker: str) -> bool:
+    """
+    Проверяет валидность тикера акции.
+    Правила:
+    - Длина от 1 до 5 символов
+    - Только латинские буквы и цифры
+    - Не может быть чисто числовым
+    """
+
+    if len(ticker) < 1 or len(ticker) > 5:
+        return False
+
+    if not ticker.isalnum():
+        return False
+
+    if ticker.isdigit():
+        return False
+
+    return True
