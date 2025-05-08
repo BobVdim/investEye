@@ -2,28 +2,28 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from core.forms.profile_form import ProfileForm
-from core.services.stock_service import StockService
-from core.handlers.share_price_handler import SharePriceHandler
-from core.services.profile_service import get_user_profile_from_db
+from core.handlers.handlers_utils.share_price_utils import clean_chat
+from core.utils.logger import logger
+from core.forms.profile_add_share_form import ProfileAddShare
 
 router = Router()
 
 
 @router.callback_query(F.data == "create_profile")
 async def create_profile_handler(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
+    try:
+        await callback.answer()
+        await state.clear()
 
-    user_id = callback.from_user.id
-    profile_data = get_user_profile_from_db(user_id)
+        await callback.message.delete()
+        await clean_chat(callback.message)
 
-    if not profile_data:
-        await state.set_state(ProfileForm.ADD_SHARE)
-        await callback.message.answer(
-            "🚀 Давайте создадим ваш профиль!\nВведите тикер акции:",
+        msg = await callback.message.answer(
+            "🚀 Давайте создадим ваш профиль!\nВведите тикер акции:"
         )
 
-    else:
-        service = StockService()
-        handler = SharePriceHandler(service)
-        await handler.get_price(callback.message, state)
+        await state.update_data(bot_msg_id=msg.message_id)
+        await state.set_state(ProfileAddShare.ADD_SHARE)
+
+    except Exception as outer_exception:
+        logger.error(f"Ошибка в create_profile_handler: {outer_exception}")

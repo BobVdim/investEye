@@ -46,3 +46,44 @@ def save_share_to_db(user_id: int, share: str, price: float, count: int):
         logger.exception(f"Ошибка при сохранении акции в БД: {str(e)}")
     finally:
         conn.close()
+
+
+def delete_share_from_db(user_id: int, share: str):
+    try:
+        conn = sqlite3.connect("my_bd")
+        cursor = conn.cursor()
+
+        cursor.execute("DELETE FROM profile WHERE id = ? AND share = ?", (user_id, share.upper()))
+        conn.commit()
+    except Exception:
+        logger.exception("Ошибка при удалении акции")
+    finally:
+        conn.close()
+
+
+def delete_share_count_in_db(user_id: int, share: str, count_to_reduce: int):
+    try:
+        conn = sqlite3.connect("my_bd")
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT count FROM profile WHERE id = ? AND share = ?", (user_id, share.upper()))
+        result = cursor.fetchone()
+        if not result:
+            return False
+        current_count = result[0]
+
+        if current_count <= count_to_reduce:
+            cursor.execute("DELETE FROM profile WHERE id = ? AND share = ?", (user_id, share.upper()))
+        else:
+            cursor.execute(
+                "UPDATE profile SET count = count - ? WHERE id = ? AND share = ?",
+                (count_to_reduce, user_id, share.upper())
+            )
+
+        conn.commit()
+        return True
+    except Exception:
+        logger.exception("Ошибка при уменьшении количества акции")
+        return False
+    finally:
+        conn.close()

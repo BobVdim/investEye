@@ -1,8 +1,8 @@
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from core.forms.profile_form import ProfileForm
-from core.handlers.handlers_utils.profile_view import build_profile_text
+from core.forms.profile_add_share_form import ProfileAddShare
+from core.handlers.handlers_utils.profile_view import build_profile_text, send_profile_empty_message
 from core.keyboards.reply import add_share_button
 from core.services.profile_service import get_user_profile_from_db, save_share_to_db
 from core.handlers.handlers_utils.share_price_utils import send_one_message
@@ -20,15 +20,11 @@ async def add_share_handler(message: Message, state: FSMContext):
         await send_one_message(
             message,
             state,
-            text="Введите тикер акции:"
+            text="Введите тикер акции, которую хотите добавить:"
         )
-        await state.set_state(ProfileForm.ADD_SHARE)
+        await state.set_state(ProfileAddShare.ADD_SHARE)
     else:
-        await send_one_message(
-            message,
-            state,
-            text="❌ У вас нет профиля. Пожалуйста, создайте профиль сначала."
-        )
+        await send_profile_empty_message(message, state)
 
 
 async def process_add_share(message: Message, state: FSMContext):
@@ -53,7 +49,7 @@ async def process_add_share(message: Message, state: FSMContext):
         state,
         text="Введите цену акции (или '-' для использования текущей рыночной цены):"
     )
-    await state.set_state(ProfileForm.ADD_PRICE)
+    await state.set_state(ProfileAddShare.ADD_PRICE)
 
 
 async def process_add_price(message: Message, state: FSMContext):
@@ -84,7 +80,7 @@ async def process_add_price(message: Message, state: FSMContext):
             state,
             text=f"Текущая цена {share_ticker}: {price:.2f} руб.\n\nВведите количество акций:"
         )
-        await state.set_state(ProfileForm.ADD_COUNT)
+        await state.set_state(ProfileAddShare.ADD_COUNT)
     else:
         try:
             price = float(message.text.strip())
@@ -95,7 +91,7 @@ async def process_add_price(message: Message, state: FSMContext):
                 state,
                 text="Введите количество акций:"
             )
-            await state.set_state(ProfileForm.ADD_COUNT)
+            await state.set_state(ProfileAddShare.ADD_COUNT)
         except ValueError:
             await send_one_message(
                 message,

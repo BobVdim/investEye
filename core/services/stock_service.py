@@ -1,7 +1,6 @@
 import requests
-import yfinance as yf
-
 from core.utils.logger import logger
+from settings import settings
 
 
 class StockService:
@@ -17,7 +16,6 @@ class StockService:
             logger.warning("Не удалось получить курс USD/RUB")
             return None
 
-        # Сначала пробуем получить цену с MOEX (в рублях)
         moex_price = StockService._get_moex_price(ticker)
         if moex_price is not None:
             return {
@@ -25,12 +23,11 @@ class StockService:
                 "usd": moex_price / usd_rub
             }
 
-        # Если не удалось — пробуем через Yahoo (в долларах)
-        yahoo_price = StockService._get_yahoo_price(ticker)
-        if yahoo_price is not None:
+        finnhub_price = StockService._get_finnhub_price(ticker)
+        if finnhub_price is not None:
             return {
-                "usd": yahoo_price,
-                "rub": yahoo_price * usd_rub
+                "usd": finnhub_price,
+                "rub": finnhub_price * usd_rub
             }
 
         return None
@@ -70,25 +67,30 @@ class StockService:
             return None
 
     @staticmethod
-    def _get_yahoo_price(ticker: str):
+    def _get_finnhub_price(ticker: str):
 
         """
-        Получаем цену акций иностранных компаний (в долларах) через Yahoo Finance
+        Получаем цену акций иностранных компаний (в долларах) через Finnhub
         """
 
         try:
-            stock = yf.Ticker(ticker)
-            data = stock.history(period="1d")
+            url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={settings.api_keys.finnhub_api_key}"
+            response = requests.get(url)
 
-            if not data.empty:
-                price = data["Close"].iloc[-1]
-                return price
+            if response.status_code == 200:
+                data = response.json()
+                price = data.get("c")
+
+                if price:
+                    return price
+                else:
+                    logger.warning(f"Цена по тикеру {ticker} не найдена через Finnhub")
+                    return None
             else:
-                logger.warning(f"Данные по {ticker} не найдены через Yahoo")
+                logger.warning(f"Ошибка от Finnhub: {response.status_code}")
                 return None
-
         except Exception as e:
-            logger.error(f"Ошибка при получении данных с Yahoo для {ticker}: {e}")
+            logger.error(f"Ошибка при получении данных с Finnhub для {ticker}: {e}")
             return None
 
     @staticmethod
@@ -97,7 +99,7 @@ class StockService:
         """
         Получаем текущий курс доллара к рублю с сайта ЦБ РФ
         """
-        
+
         try:
             response = requests.get("https://www.cbr-xml-daily.ru/daily_json.js")
             if response.status_code == 200:

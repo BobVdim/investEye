@@ -8,19 +8,19 @@ class TelegramBot:
 
 
 @dataclass
-class TinkoffInvest:
-    api_key: str
+class ApiKeys:
+    finnhub_api_key: str
 
 
 @dataclass
 class Bots:
     telegram_bot: TelegramBot
-    tinkoff_invest: TinkoffInvest
 
 
 @dataclass
 class Settings:
     bots: Bots
+    api_keys: ApiKeys
 
 
 def get_settings(path: str):
@@ -28,17 +28,16 @@ def get_settings(path: str):
     env.read_env(path)
 
     telegram_token = env.str("TELEGRAM_TOKEN")
-    tinkoff_api_key = env.str("TINKOFF_INVEST_KEY")
+    finnhub_key = env.str("FINNHUB_API_KEY")
 
     return Settings(
         bots=Bots(
             telegram_bot=TelegramBot(bot_token=telegram_token),
-            tinkoff_invest=TinkoffInvest(api_key=tinkoff_api_key),
+        ),
+        api_keys=ApiKeys(
+            finnhub_api_key=finnhub_key,
         )
     )
 
 
-settings = get_settings('envfile')
-
-API_KEY = settings.bots.tinkoff_invest.api_key
-TOKEN = settings.bots.telegram_bot.bot_token
+settings = get_settings("envfile")
