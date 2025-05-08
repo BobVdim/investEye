@@ -8,6 +8,8 @@ from core.services.profile_service import get_user_profile_from_db, save_share_t
 from core.handlers.handlers_utils.share_price_utils import send_one_message
 from core.handlers.handlers_utils.share_price_utils import delete_previous_bot_message, clean_chat
 
+from core.texts import profile_texts
+
 
 async def add_share_handler(message: Message, state: FSMContext):
     await delete_previous_bot_message(message, state)
@@ -17,11 +19,7 @@ async def add_share_handler(message: Message, state: FSMContext):
     profile_data = get_user_profile_from_db(user_id)
 
     if profile_data:
-        await send_one_message(
-            message,
-            state,
-            text="Введите тикер акции, которую хотите добавить:"
-        )
+        await send_one_message(message, state, text=profile_texts.ENTER_TICKER)
         await state.set_state(ProfileAddShare.ADD_SHARE)
     else:
         await send_profile_empty_message(message, state)
@@ -34,21 +32,12 @@ async def process_add_share(message: Message, state: FSMContext):
     share_ticker = message.text.strip().upper()
 
     if not is_valid_ticker(share_ticker):
-        await send_one_message(
-            message,
-            state,
-            text="❌ Некорректный тикер акции. Тикер должен состоять из 1-5 латинских букв и/или цифр."
-                 "\n\nПопробуйте снова."
-        )
+        await send_one_message(message, state, text=profile_texts.INVALID_TICKER)
+        await state.set_state(ProfileAddShare.ADD_SHARE)
         return
 
     await state.update_data(share=share_ticker)
-
-    await send_one_message(
-        message,
-        state,
-        text="Введите цену акции (или '-' для использования текущей рыночной цены):"
-    )
+    await send_one_message(message, state, text=profile_texts.ENTER_PRICE)
     await state.set_state(ProfileAddShare.ADD_PRICE)
 
 
@@ -66,9 +55,8 @@ async def process_add_price(message: Message, state: FSMContext):
 
         if price_data is None:
             await send_one_message(
-                message,
-                state,
-                text=f"❌ Не удалось получить текущую цену для {share_ticker}. Пожалуйста, введите цену вручную."
+                message, state,
+                text=profile_texts.FAILED_TO_GET_PRICE.format(ticker=share_ticker)
             )
             return
 
@@ -76,9 +64,8 @@ async def process_add_price(message: Message, state: FSMContext):
         await state.update_data(price=price)
 
         await send_one_message(
-            message,
-            state,
-            text=f"Текущая цена {share_ticker}: {price:.2f} руб.\n\nВведите количество акций:"
+            message, state,
+            text=profile_texts.CURRENT_PRICE_TEXT.format(ticker=share_ticker, price=price)
         )
         await state.set_state(ProfileAddShare.ADD_COUNT)
     else:
@@ -86,18 +73,11 @@ async def process_add_price(message: Message, state: FSMContext):
             price = float(message.text.strip())
             await state.update_data(price=price)
 
-            await send_one_message(
-                message,
-                state,
-                text="Введите количество акций:"
-            )
+            await send_one_message(message, state, text=profile_texts.ENTER_COUNT)
             await state.set_state(ProfileAddShare.ADD_COUNT)
         except ValueError:
-            await send_one_message(
-                message,
-                state,
-                text="❌ Пожалуйста, введите корректную цену или '-' для использования текущей цены."
-            )
+            await send_one_message(message, state, text=profile_texts.INVALID_PRICE)
+            await state.set_state(ProfileAddShare.ADD_PRICE)
 
 
 async def process_add_count(message: Message, state: FSMContext):
@@ -106,6 +86,9 @@ async def process_add_count(message: Message, state: FSMContext):
         await clean_chat(message)
 
         count = int(message.text.strip())
+        if count <= 0:
+            raise ValueError
+
         await state.update_data(count=count)
 
         user_data = await state.get_data()
@@ -119,38 +102,17 @@ async def process_add_count(message: Message, state: FSMContext):
         profile_data = get_user_profile_from_db(user_id)
         text = build_profile_text(profile_data)
 
-        await send_one_message(
-            message,
-            state,
-            text=(
-                f"{text}"
-            ),
-            reply_markup=add_share_button
-        )
+        await send_one_message(message, state, text=text, reply_markup=add_share_button)
     except ValueError:
-        await send_one_message(
-            message,
-            state,
-            text="❌ Пожалуйста, введите корректное количество."
-        )
+        await send_one_message(message, state, text=profile_texts.INVALID_COUNT)
+        await state.set_state(ProfileAddShare.ADD_COUNT)
 
 
 def is_valid_ticker(ticker: str) -> bool:
-    """
-    Проверяет валидность тикера акции.
-    Правила:
-    - Длина от 1 до 5 символов
-    - Только латинские буквы и цифры
-    - Не может быть чисто числовым
-    """
-
     if len(ticker) < 1 or len(ticker) > 5:
         return False
-
     if not ticker.isalnum():
         return False
-
     if ticker.isdigit():
         return False
-
     return True
