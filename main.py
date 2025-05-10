@@ -6,6 +6,7 @@ from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from core.forms.profile_add_share_form import ProfileAddShare
+from core.handlers.handlers_utils.profile_change_view_mod import change_view_to_pc, change_view_to_mobile
 from core.handlers.profile_add_share_hanlder import add_share_handler, process_add_share, process_add_price, \
     process_add_count
 from settings import settings
@@ -44,6 +45,9 @@ async def main():
     dp.message.register(get_start, Command(commands=['start']))
     dp.message.register(share_handler.get_price, Command(commands=['share_price']))
     dp.message.register(get_user_profile_message, Command(commands='profile'))
+
+    dp.message.register(change_view_to_pc, F.text == "🖥️ Вид для ПК")
+    dp.message.register(change_view_to_mobile, F.text == "📱 Вид для телефона")
 
     dp.message.register(add_share_handler, F.text == "✨ Добавить акцию")
     dp.message.register(process_add_share, ProfileAddShare.ADD_SHARE)

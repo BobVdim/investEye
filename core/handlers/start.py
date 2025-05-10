@@ -7,7 +7,7 @@ from core.handlers.handlers_utils.share_price_utils import send_one_message, del
 
 async def get_start(message: Message, state: FSMContext):
     await delete_previous_bot_message(message, state)
-    await state.clear()
+    await state.set_state(None)
 
     await send_one_message(
         message,

@@ -27,7 +27,7 @@ class SharePriceHandler:
         """
         try:
             await delete_previous_bot_message(message, state)
-            await state.clear()
+            await state.set_state(None)
             await clean_chat(message)
 
             await send_one_message(

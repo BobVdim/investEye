@@ -3,10 +3,15 @@ import sqlite3
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from core.forms.profile_delete_share_form import ProfileDeleteShare
+from core.forms.profile_view_mode_form import ProfileViewMode
 from core.services.profile_service import delete_share_from_db, delete_share_count_in_db, get_user_profile_from_db
 from core.handlers.handlers_utils.share_price_utils import send_one_message, delete_previous_bot_message, clean_chat
 from core.keyboards.reply import add_share_button
-from core.handlers.handlers_utils.profile_view import build_profile_text, send_profile_empty_message
+from core.handlers.handlers_utils.profile_view import (
+    build_profile_text_pc,
+    build_profile_text_mobile,
+    send_profile_empty_message
+)
 from core.texts import profile_texts
 
 
@@ -32,8 +37,16 @@ async def process_delete_share(message: Message, state: FSMContext):
         conn.commit()
         conn.close()
 
-        await clean_chat(message)
-        await delete_previous_bot_message(message, state)
+        data = await state.get_data()
+        view_mode = data.get("view_mode", "pc")
+
+        await state.clear()
+        await state.update_data(view_mode=view_mode)
+
+        if view_mode == "mobile":
+            await state.set_state(ProfileViewMode.MOBILE_VIEW)
+        else:
+            await state.set_state(ProfileViewMode.PC_VIEW)
 
         await send_profile_empty_message(message, state)
         return
@@ -43,7 +56,7 @@ async def process_delete_share(message: Message, state: FSMContext):
     user_id = message.from_user.id
     conn = sqlite3.connect("my_bd")
     cursor = conn.cursor()
-    cursor.execute("SELECT count FROM profile WHERE id = ? AND share = ?", (user_id, ticker)) 
+    cursor.execute("SELECT count FROM profile WHERE id = ? AND share = ?", (user_id, ticker))
     result = cursor.fetchone()
     conn.close()
 
@@ -69,6 +82,7 @@ async def process_delete_count(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user_data = await state.get_data()
     ticker = user_data.get("share")
+    view_mode = user_data.get("view_mode", "pc")
 
     count_text = message.text.strip().lower()
 
@@ -89,9 +103,14 @@ async def process_delete_count(message: Message, state: FSMContext):
             return
 
     profile_data = get_user_profile_from_db(user_id)
+
     if not profile_data:
         await send_profile_empty_message(message, state)
         return
 
-    text = build_profile_text(profile_data)
+    if view_mode == "mobile":
+        text = build_profile_text_mobile(profile_data)
+    else:
+        text = build_profile_text_pc(profile_data)
+
     await send_one_message(message, state, text=text, reply_markup=add_share_button)
