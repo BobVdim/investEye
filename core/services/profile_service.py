@@ -2,6 +2,25 @@ import sqlite3
 from core.utils.logger import logger
 
 
+def get_portfolio_current_value(user_id: int, stock_service) -> float:
+    try:
+        conn = sqlite3.connect("my_bd")
+        cursor = conn.cursor()
+        cursor.execute("SELECT share, count FROM profile WHERE id = ?", (user_id,))
+        rows = cursor.fetchall()
+        conn.close()
+
+        total_value = 0.0
+        for share, count in rows:
+            price_data = stock_service.get_share_price(share)
+            if price_data and count:
+                total_value += price_data["rub"] * count
+        return total_value
+    except Exception:
+        logger.exception("Ошибка при расчете текущей стоимости портфеля")
+        return 0.0
+
+
 def get_user_profile_from_db(user_id: int):
     try:
         conn = sqlite3.connect("my_bd")
