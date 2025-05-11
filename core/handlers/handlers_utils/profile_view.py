@@ -26,13 +26,10 @@ async def get_user_profile_message(message: Message, state: FSMContext):
         data = await state.get_data()
         view_mode = data.get("view_mode", "pc")
 
-        stock_service = StockService()
-        current_value = get_portfolio_current_value(user_id, stock_service)
-
         if view_mode == "mobile":
-            text = build_profile_text_mobile(profile_data, current_value)
+            text = build_profile_text_mobile(profile_data)
         else:
-            text = build_profile_text_pc(profile_data, current_value)
+            text = build_profile_text_pc(profile_data)
 
         await send_one_message(
             message,
@@ -46,8 +43,9 @@ async def get_user_profile_message(message: Message, state: FSMContext):
         await send_one_message(message, state, text=ERROR_GET_PROFILE)
 
 
-def build_profile_text_pc(rows: list[tuple], current_value: float = None) -> str:
+def build_profile_text_pc(rows: list[tuple]) -> str:
     total_spent = 0
+    total_current = 0
     table_lines = []
     share_performance = []
 
@@ -68,6 +66,7 @@ def build_profile_text_pc(rows: list[tuple], current_value: float = None) -> str
         current_price_data = StockService().get_share_price(share)
         current_price = current_price_data["rub"] if current_price_data else price
         current_value = round(current_price * count, 2)
+        total_current += current_value
 
         performance = (current_price - price) / price * 100
         share_performance.append((share, performance))
@@ -94,13 +93,13 @@ def build_profile_text_pc(rows: list[tuple], current_value: float = None) -> str
 
     table_str = "\n".join(table_lines)
     formatted_spent = f"{total_spent:,.2f}".replace(",", " ").replace(".", ",")
-    formatted_current = f"{current_value:,.2f}".replace(",", " ").replace(".", ",")
+    formatted_current = f"{total_current:,.2f}".replace(",", " ").replace(".", ",")
 
-    difference = current_value - total_spent
+    difference = total_current - total_spent
     if difference < 0:
-        difference_text = f"📉 Упал на {abs(difference):,.2f} ₽ ({abs(difference / total_spent * 100):,.2f}%)"
+        difference_text = f"📉 Упал на {abs(difference):,.2f} ₽ ({abs(difference / total_spent * 100):.2f}%)"
     else:
-        difference_text = f"📈 Вырос на {difference:,.2f} ₽ ({difference / total_spent * 100:,.2f}%)"
+        difference_text = f"📈 Вырос на {difference:,.2f} ₽ ({difference / total_spent * 100:.2f}%)"
 
     if share_performance:
         if len(share_performance) == 1:
@@ -108,13 +107,13 @@ def build_profile_text_pc(rows: list[tuple], current_value: float = None) -> str
             if perf >= 0:
                 performance_text = f"\n\n- 📈 <b>Лучшая акция:</b> {share.upper()} (+{perf:.2f}%)"
             else:
-                performance_text = f"\n\n- 📉 <b>Худшая акция:</b> {share.upper()} ({perf:.2f}%)"
+                performance_text = f"\n\n- 📉 <b>Худшая акция:</b> {share.upper()} (-{perf:.2f}%)"
         else:
             worst_share, worst_perf = min(share_performance, key=lambda x: x[1])
             best_share, best_perf = max(share_performance, key=lambda x: x[1])
             performance_text = (
                 f"\n\n- 📈 <b>Лучшая акция:</b> {best_share.upper()} (+{best_perf:.2f}%)\n"
-                f"- 📉 <b>Худшая акция:</b> {worst_share.upper()} ({worst_perf:.2f}%)"
+                f"- 📉 <b>Худшая акция:</b> {worst_share.upper()} (-{worst_perf:.2f}%)"
             )
     else:
         performance_text = ""
@@ -129,9 +128,9 @@ def build_profile_text_pc(rows: list[tuple], current_value: float = None) -> str
     )
 
 
-def build_profile_text_mobile(rows: list, current_value: float = None) -> str:
+def build_profile_text_mobile(rows: list) -> str:
     total_spent = 0
-    total_current = current_value if current_value is not None else 0
+    total_current = 0
     lines = []
     share_performance = []
 
@@ -145,38 +144,40 @@ def build_profile_text_mobile(rows: list, current_value: float = None) -> str:
         current_price_data = StockService().get_share_price(share)
         current_price = current_price_data["rub"] if current_price_data else price
         share_current_value = round(current_price * count, 2)
-        if current_value is None:
-            total_current += share_current_value
+        total_current += share_current_value
 
         performance = (current_price - price) / price * 100
         share_performance.append((share, performance))
 
         formatted_price = f"{price:,.2f}".replace(",", " ").replace(".", ",")
         formatted_count = f"{count:,}".replace(",", " ")
+        formatted_spent = f"{spent:,.2f}".replace(",", " ").replace(".", ",")
+        formatted_current = f"{share_current_value:,.2f}".replace(",", " ").replace(".", ",")
 
         lines.append(
             f"📊 <b>{share.upper()}</b>\n"
-            f"💰 <i>Цена покупки:</i> {formatted_price} ₽\n"
-            f"🛒 <i>Кол-во:</i> {formatted_count}\n"
-            f"📈 <i>Изменение:</i> {performance:+.2f}%\n"
+            f"- <i>Цена покупки:</i> {formatted_price} ₽\n"
+            f"- <i>Кол-во:</i> {formatted_count}\n"
+            f"- <i>Затраты:</i> {formatted_spent} ₽\n"
+            f"- <i>Текущая:</i> {formatted_current} ₽\n"
         )
 
-    formatted_spent = f"{total_spent:,.2f}".replace(",", " ").replace(".", ",")
-    formatted_current = f"{total_current:,.2f}".replace(",", " ").replace(".", ",")
+    formatted_total_spent = f"{total_spent:,.2f}".replace(",", " ").replace(".", ",")
+    formatted_total_current = f"{total_current:,.2f}".replace(",", " ").replace(".", ",")
 
     difference = total_current - total_spent
     if difference < 0:
-        difference_text = f"📉 Упал на {abs(difference):,.2f} ₽ ({abs(difference / total_spent * 100):,.2f}%)"
+        difference_text = f"- 📉 Упал на {abs(difference):,.2f} ₽ ({abs(difference / total_spent * 100):.2f}%)"
     else:
-        difference_text = f"📈 Вырос на {difference:,.2f} ₽ ({difference / total_spent * 100:,.2f}%)"
+        difference_text = f"- 📈 Вырос на {difference:,.2f} ₽ ({difference / total_spent * 100:.2f}%)"
 
     if share_performance:
         if len(share_performance) == 1:
             share, perf = share_performance[0]
             if perf >= 0:
-                performance_text = f"\n\n📈 <b>Лучшая акция:</b> {share.upper()} (+{perf:.2f}%)"
+                performance_text = f"\n\n- 📈 <b>Лучшая акция:</b> {share.upper()} (+{perf:.2f}%)"
             else:
-                performance_text = f"\n\n📉 <b>Худшая акция:</b> {share.upper()} ({perf:.2f}%)"
+                performance_text = f"\n\n- 📉 <b>Худшая акция:</b> {share.upper()} ({perf:.2f}%)"
         else:
             worst_share, worst_perf = min(share_performance, key=lambda x: x[1])
             best_share, best_perf = max(share_performance, key=lambda x: x[1])
@@ -188,12 +189,12 @@ def build_profile_text_mobile(rows: list, current_value: float = None) -> str:
         performance_text = ""
 
     return (
-            f"💼 <b>Общая стоимость портфеля:</b>\n"
-            f"- <i>Затраты:</i> <b>{formatted_spent} ₽</b>\n"
-            f"- <i>Текущая:</i> <b>{formatted_current} ₽</b>\n"
-            f"- {difference_text}"
-            f"{performance_text}\n\n"
-            + "\n".join(lines)
+        f"💼 <b>Общая стоимость портфеля:</b>\n"
+        f"- <i>Затраты:</i> <b>{formatted_total_spent} ₽</b>\n"
+        f"- <i>Текущая:</i> <b>{formatted_total_current} ₽</b>\n"
+        f"{difference_text}"
+        f"{performance_text}\n\n"
+        + "\n".join(lines)
     )
 
 
