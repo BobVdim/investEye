@@ -16,6 +16,11 @@ jobs:
       - name: Stop old containers
         run: docker-compose down
 
+      - name: Write envfile file
+        run: |
+          echo "TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }}" >> envfile
+          echo "FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}" >> envfile
+
       - name: Build and start containers
         run: docker-compose up -d --build
 

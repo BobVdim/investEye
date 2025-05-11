@@ -7,3 +7,6 @@ services:
     volumes:
       - .:/app
     command: python main.py
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+        - FINNHUB_API_KEY=${FINNHUB_API_KEY}
