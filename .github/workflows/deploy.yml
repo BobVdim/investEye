@@ -27,3 +27,8 @@ jobs:
       - name: Cleanup dangling images (optional)
         run: docker image prune -f
 
+      - name: Fix permissions
+        run: sudo rm -rf investEye/__pycache__ || true
+
+      - name: Fix permissions
+        run: sudo rm -rf investEye/core || true
