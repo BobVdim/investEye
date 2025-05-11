@@ -26,3 +26,6 @@ jobs:
 
       - name: Cleanup dangling images (optional)
         run: docker image prune -f
+
+      - name: Fix permissions
+        run: sudo rm -rf __pycache__ || true
